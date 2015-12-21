@@ -944,10 +944,16 @@ fail:
         RMW_SET_ERROR_MSG("waitset info is null");
         return RMW_RET_ERROR;
       }
+      std::mutex * conditionMutex = &waitset_info->condition_mutex;
+      if (!conditionMutex) {
+        RMW_SET_ERROR_MSG("waitset mutex is null");
+        return RMW_RET_ERROR;
+      }
 
       rmw_guard_conditions_t * fixed_guard_conditions = waitset->fixed_guard_conditions;
       if (fixed_guard_conditions && fixed_guard_conditions->guard_conditions) {
         // We also need to attach the fixed guard conditions to the waitset (and detach them in destroy)
+        std::unique_lock<std::mutex> lock(*conditionMutex);
         for (size_t i = 0; i < fixed_guard_conditions->guard_condition_count; ++i) {
           void * guard_cond = fixed_guard_conditions->guard_conditions[i];
           if (!guard_cond) {
@@ -957,7 +963,9 @@ fail:
           if (!rtps_guard_cond) {
             continue;
           }
+          lock.unlock();
           rtps_guard_cond->dettachCondition();
+          lock.lock();
         }
       }
 
