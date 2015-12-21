@@ -132,7 +132,6 @@ class ClientListener : public SubscriberListener
 
         bool hasData()
         {
-            std::lock_guard<std::mutex> lock(internalMutex_);
             return !list.empty();
         }
 
@@ -823,7 +822,6 @@ fail:
 
             bool getHasTriggered()
             {
-                std::lock_guard<std::mutex> lock(internalMutex_);
                 bool ret = hasTriggered_;
                 hasTriggered_ = false;
                 return ret;
@@ -1637,6 +1635,7 @@ fail:
                 guard_condition->attachCondition(conditionMutex, conditionVariable);
             }
         }
+        rmw_guard_conditions_t * fixed_guard_conditions = waitset->fixed_guard_conditions;
 
         std::unique_lock<std::mutex> lock(*conditionMutex);
 
@@ -1673,6 +1672,15 @@ fail:
                 void *data = guard_conditions->guard_conditions[i];
                 GuardCondition *guard_condition = (GuardCondition*)data;
                 if(guard_condition->hasTriggered())
+                    hasToWait = false;
+            }
+        }
+        if (fixed_guard_conditions) {
+            for(unsigned long i = 0; hasToWait && i < fixed_guard_conditions->guard_condition_count; ++i)
+            {
+                void *data = fixed_guard_conditions->guard_conditions[i];
+                GuardCondition *guard_condition = (GuardCondition*)data;
+                if(guard_condition->getHasTriggered())
                     hasToWait = false;
             }
         }
