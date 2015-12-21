@@ -132,6 +132,7 @@ class ClientListener : public SubscriberListener
 
         bool hasData()
         {
+            std::lock_guard<std::mutex> lock(internalMutex_);
             return !list.empty();
         }
 
@@ -822,6 +823,7 @@ fail:
 
             bool getHasTriggered()
             {
+                std::lock_guard<std::mutex> lock(internalMutex_);
                 bool ret = hasTriggered_;
                 hasTriggered_ = false;
                 return ret;
@@ -888,7 +890,7 @@ fail:
       // This should default-construct the fields of CustomWaitsetInfo
       waitset_info = static_cast<CustomWaitsetInfo *>(waitset->data);
       RMW_TRY_PLACEMENT_NEW(waitset_info, waitset_info, goto fail, CustomWaitsetInfo);
-      if (!waitset->data | !waitset_info) {
+      if (!waitset->data || !waitset_info) {
         RMW_SET_ERROR_MSG("failed to construct waitset info struct");
         goto fail;
       }
@@ -1639,7 +1641,7 @@ fail:
         std::unique_lock<std::mutex> lock(*conditionMutex);
 
         // First check variables.
-        bool hasToWait = true;
+        bool hasToWait = (wait_timeout && wait_timeout->sec > 0 && wait_timeout->nsec > 0) || !wait_timeout;
 
         for(unsigned long i = 0; hasToWait && i < subscriptions->subscriber_count; ++i)
         {
