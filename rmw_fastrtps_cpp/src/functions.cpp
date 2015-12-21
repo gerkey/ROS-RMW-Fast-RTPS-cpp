@@ -1619,11 +1619,13 @@ fail:
             custom_service_info->listener_->attachCondition(conditionMutex, conditionVariable);
         }
 
-        for(unsigned long i = 0; i < guard_conditions->guard_condition_count; ++i)
-        {
-            void *data = guard_conditions->guard_conditions[i];
-            GuardCondition *guard_condition = (GuardCondition*)data;
-            guard_condition->attachCondition(conditionMutex, conditionVariable);
+        if (guard_conditions) {
+            for(unsigned long i = 0; i < guard_conditions->guard_condition_count; ++i)
+            {
+                void *data = guard_conditions->guard_conditions[i];
+                GuardCondition *guard_condition = (GuardCondition*)data;
+                guard_condition->attachCondition(conditionMutex, conditionVariable);
+            }
         }
 
         std::unique_lock<std::mutex> lock(*conditionMutex);
@@ -1655,12 +1657,14 @@ fail:
                 hasToWait = false;
         }
 
-        for(unsigned long i = 0; hasToWait && i < guard_conditions->guard_condition_count; ++i)
-        {
-            void *data = guard_conditions->guard_conditions[i];
-            GuardCondition *guard_condition = (GuardCondition*)data;
-            if(guard_condition->hasTriggered())
-                hasToWait = false;
+        if (guard_conditions) {
+            for(unsigned long i = 0; hasToWait && i < guard_conditions->guard_condition_count; ++i)
+            {
+                void *data = guard_conditions->guard_conditions[i];
+                GuardCondition *guard_condition = (GuardCondition*)data;
+                if(guard_condition->hasTriggered())
+                    hasToWait = false;
+            }
         }
 
         if(hasToWait)
@@ -1714,17 +1718,20 @@ fail:
 	    lock.lock();
         }
 
-        for(unsigned long i = 0; i < guard_conditions->guard_condition_count; ++i)
+        if (guard_conditions)
         {
-            void *data = guard_conditions->guard_conditions[i];
-            GuardCondition *guard_condition = (GuardCondition*)data;
-            if(!guard_condition->getHasTriggered())
+            for(unsigned long i = 0; i < guard_conditions->guard_condition_count; ++i)
             {
-                guard_conditions->guard_conditions[i] = 0;
+                void *data = guard_conditions->guard_conditions[i];
+                GuardCondition *guard_condition = (GuardCondition*)data;
+                if(!guard_condition->getHasTriggered())
+                {
+                    guard_conditions->guard_conditions[i] = 0;
+                }
+          lock.unlock();
+                guard_condition->dettachCondition();
+          lock.lock();
             }
-	    lock.unlock();
-            guard_condition->dettachCondition();
-	    lock.lock();
         }
 
         return RMW_RET_OK;
